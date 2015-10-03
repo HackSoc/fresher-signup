@@ -51,30 +51,46 @@ draw (ed, p, s) = center $ hCenter (hLimit 47 hacksoc) <=> hCenter (pad email <=
   select False = id
 
 handle :: State -> Event -> EventM (Next State)
-handle _ (EvKey KEsc []) = continue defaultState
-handle st (EvKey (KChar 'c') [MCtrl]) = halt st
+handle st@(ed, paid, selected) ev = case ev of
+  -- 'esc' resets
+  EvKey KEsc [] -> continue defaultState
 
-handle (ed, p, Email)  (EvKey (KChar '\t') []) = continue (ed, p, Paid)
-handle (ed, p, Paid)   (EvKey (KChar '\t') []) = continue (ed, p, Submit)
-handle (ed, p, Submit) (EvKey (KChar '\t') []) = continue (ed, p, Email)
+  -- C-c terminates
+  EvKey (KChar 'c') [MCtrl] -> halt st
 
-handle (ed, p, Email)  (EvKey KDown []) = continue (ed, p, Paid)
-handle (ed, p, Paid)   (EvKey KDown []) = continue (ed, p, Submit)
-handle (ed, p, Submit) (EvKey KDown []) = continue (ed, p, Email)
+  -- 'tab', 'up', and 'down' navigate
+  EvKey (KChar '\t') [] -> continue (ed, paid, nextsel)
+  EvKey KDown [] -> continue (ed, paid, nextsel)
+  EvKey KUp   [] -> continue (ed, paid, priorsel)
 
-handle (ed, p, Email)  (EvKey KUp []) = continue (ed, p, Submit)
-handle (ed, p, Paid)   (EvKey KUp []) = continue (ed, p, Email)
-handle (ed, p, Submit) (EvKey KUp []) = continue (ed, p, Paid)
+  -- contextual controls
+  _ -> case (selected, ev) of
+    -- editor can be typed into
+    (Email, _) -> handleEvent ev ed >>= \ed' -> continue (ed', paid, selected)
 
-handle (ed, p, Email) e = handleEvent e ed >>= \ed' -> continue (ed', p, Email)
-handle (ed, p, Paid) (EvKey KEnter []) = continue (ed, not p, Paid)
-handle (ed, p, Paid) (EvKey (KChar ' ') []) = continue (ed, not p, Paid)
-handle (ed, p, Submit) (EvKey KEnter []) = saveEmail >> continue defaultState where
-  saveEmail
-    | p         = liftIO . appendFile outFilePaid . unlines $ getEditContents ed
-    | otherwise = liftIO . appendFile outFile     . unlines $ getEditContents ed
+    -- checkbox can be toggled with 'enter' or 'space'
+    (Paid, EvKey KEnter [])      -> continue (ed, not paid, selected)
+    (Paid, EvKey (KChar ' ') []) -> continue (ed, not paid, selected)
 
-handle s _ = continue s
+    -- button can be pressed with 'enter'
+    (Submit, EvKey KEnter []) -> saveEmail >> continue defaultState
+
+    -- fall through
+    _ -> continue st
+
+  where
+    nextsel = case selected of
+      Email  -> Paid
+      Paid   -> Submit
+      Submit -> Email
+
+    priorsel = case selected of
+      Email  -> Submit
+      Paid   -> Email
+      Submit -> Paid
+
+    saveEmail = liftIO . appendFile fname . unlines $ getEditContents ed where
+      fname = if paid then outFilePaid else outFile
 
 main :: IO ()
 main = void $ defaultMain app defaultState where
