@@ -58,6 +58,14 @@ handle (ed, p, Email)  (EvKey (KChar '\t') []) = continue (ed, p, Paid)
 handle (ed, p, Paid)   (EvKey (KChar '\t') []) = continue (ed, p, Submit)
 handle (ed, p, Submit) (EvKey (KChar '\t') []) = continue (ed, p, Email)
 
+handle (ed, p, Email)  (EvKey KDown []) = continue (ed, p, Paid)
+handle (ed, p, Paid)   (EvKey KDown []) = continue (ed, p, Submit)
+handle (ed, p, Submit) (EvKey KDown []) = continue (ed, p, Email)
+
+handle (ed, p, Email)  (EvKey KUp []) = continue (ed, p, Submit)
+handle (ed, p, Paid)   (EvKey KUp []) = continue (ed, p, Email)
+handle (ed, p, Submit) (EvKey KUp []) = continue (ed, p, Paid)
+
 handle (ed, p, Email) e = handleEvent e ed >>= \ed' -> continue (ed', p, Email)
 handle (ed, p, Paid) (EvKey KEnter []) = continue (ed, not p, Paid)
 handle (ed, p, Paid) (EvKey (KChar ' ') []) = continue (ed, not p, Paid)
