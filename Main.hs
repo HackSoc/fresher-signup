@@ -29,7 +29,7 @@ outFilePaid :: FilePath
 outFilePaid = "emails-paid.txt"
 
 draw :: State -> Widget
-draw (ed, p, s) = center $ hCenter (hLimit 47 hacksoc) <=> hCenter (pad email <=> paid <=> pad button) where
+draw (ed, p, s) = vCenter $ hCenter (hLimit 47 hacksoc) <=> hCenter (pad form) where
   hacksoc = vBox
     [ str "╦   ╦          ╦   ╔══╣"
     , str "║   ║          ║   ║"
@@ -39,16 +39,20 @@ draw (ed, p, s) = center $ hCenter (hLimit 47 hacksoc) <=> hCenter (pad email <=
     , str "     the " <+> withAttr "cs" (str "computer science") <+> str " society"
     ]
 
-  email = pad (select (s == Email) $ str "Email address:") <+> ((str " " <+>) . border . hLimit 30 . vLimit 1 $ renderEditor ed)
+  form = field Email (pad $ str "Email address:") email <=> field Paid (str "Paid:") paid <=> pad button where
+    -- form fields
+    email  = border . hLimit 30 . vLimit 1 $ renderEditor ed
+    paid   = str (if p then "[X]" else "[ ]")
+    button = select Submit $ str "[submit]"
 
-  paid = (select (s == Paid) $ str "Paid:") <+> str (if p then " [X]" else " [ ]")
+    -- formatting
+    field sel title widget = select sel title <+> str " "  <+> widget
 
-  button = select (s == Submit) $ str "[submit]"
+    select sel
+      | s == sel  = withAttr "select"
+      | otherwise = id
 
   pad = translateBy $ Location (0, 1)
-
-  select True  = withAttr "select"
-  select False = id
 
 handle :: State -> Event -> EventM (Next State)
 handle st@(ed, paid, selected) ev = case ev of
@@ -102,6 +106,6 @@ main = void $ defaultMain app defaultState where
     , appAttrMap      = const $ attrMap (fg green)
       [ ("cs", fg brightWhite)
       , ("edit", fg white)
-      , ("select", withStyle (withStyle (fg green) bold) underline)]
+      , ("select", (fg green `withStyle` bold) `withStyle` underline)]
     , appLiftVtyEvent = id
     }
